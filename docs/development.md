@@ -304,6 +304,8 @@ Any static file server works for `dist/web`, for example `python3 -m http.server
 
 URL flags: `?webgl` forces the WebGL2 backend, and `?cpu` forces the CPU canvas path.
 
+**GitHub Pages.** `.github/workflows/pages.yml` builds the web app with `packaging/web/package.sh` (so the size gate applies) and publishes `dist/web` to GitHub Pages on every push to `main`; pull requests that touch the web app only build it. It needs a one-time switch in the repository settings: Settings › Pages › Build and deployment › Source: **GitHub Actions**. The site then lives at `https://<owner>.github.io/<repo>/`; `public_url = "./"` in `Trunk.toml` keeps it working under that sub-path. Pages sets no custom headers (`_headers` is not used there) but serves `.wasm` as `application/wasm` with gzip.
+
 To build and serve the web app entirely in Docker, run from the repository root:
 
 ```sh

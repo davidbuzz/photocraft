@@ -1,0 +1,72 @@
+name: Web app (GitHub Pages)
+
+# Builds apps/photocraft-web with trunk (the same recipe as release.yml's `web` job) and publishes
+# dist/web as a static site on GitHub Pages. Pull requests only build, so a change that breaks the
+# web build or its 24 MiB size gate shows up before it lands; pushes to main also deploy.
+# One-time setup: Settings > Pages > Build and deployment > Source: "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "apps/photocraft-web/**"
+      - "packaging/web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  # Superseded PR builds can stop; a deploy to Pages in flight should finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build web app
+    runs-on: ubuntu-latest
+    env:
+      TRUNK_VERSION: 0.21.14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pages-web
+      - name: Install trunk
+        run: |
+          curl -fsSL "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C "$HOME/.cargo/bin" trunk
+          trunk --version
+      # package.sh runs `trunk build --release` into dist/web and enforces the relative-URL check
+      # and the wasm size gate; the zip it also writes is not used here.
+      - name: Build
+        run: packaging/web/package.sh
+      - name: Prepare site
+        run: |
+          # GitHub Pages has no custom headers, so _headers/.htaccess are left out; it serves .wasm
+          # as application/wasm and compresses it on its own. .nojekyll serves files verbatim.
+          touch dist/web/.nojekyll
+          ls -l dist/web
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/web
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
