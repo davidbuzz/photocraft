@@ -11,8 +11,9 @@ on:
     paths:
       - .github/workflows/windows-arm64.yml
       - packaging/windows/**
-  schedule:
-    - cron: "41 4 * * *"
+  # Scheduled runs disabled in this fork; run it by hand (workflow_dispatch) when needed.
+  # schedule:
+  #   - cron: "41 4 * * *"
   workflow_dispatch:
 
 concurrency:
